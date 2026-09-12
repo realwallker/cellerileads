@@ -1,69 +1,145 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect } from 'react';
+import { Header } from '@/components/Header';
+import { StatsBar } from '@/components/StatsBar';
+import { KanbanBoard } from '@/components/KanbanBoard';
+import { LeadDetailModal } from '@/components/LeadDetailModal';
+import { NewLeadModal } from '@/components/NewLeadModal';
+import { TestCapiModal } from '@/components/TestCapiModal';
+import { CapiLogsModal } from '@/components/CapiLogsModal';
+import { Lead, PipelineStageId, CapiEventLog } from '@/lib/types';
+import { DEMO_LEADS, PIPELINE_STAGES } from '@/lib/constants';
+
+export default function CrmDashboard() {
+  const [leads, setLeads] = useState<Lead[]>(DEMO_LEADS);
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
+  const [isTestCapiOpen, setIsTestCapiOpen] = useState(false);
+  const [isCapiLogsOpen, setIsCapiLogsOpen] = useState(false);
+  const [capiLogs, setCapiLogs] = useState<CapiEventLog[]>([]);
+
+  // Filter leads by selected vendor
+  const displayedLeads = selectedVendorId
+    ? leads.filter((l) => l.assignedTo === selectedVendorId)
+    : leads;
+
+  // Handle stage change (drag-and-drop or modal)
+  const handleMoveLead = async (leadId: string, newStageId: PipelineStageId) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+
+    const updatedLead: Lead = {
+      ...lead,
+      stage: newStageId,
+      updatedAt: new Date().toISOString(),
+      stageUpdatedAt: new Date().toISOString(),
+    };
+
+    // Optimistic UI update
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? updatedLead : l)));
+    if (selectedLead?.id === leadId) {
+      setSelectedLead(updatedLead);
+    }
+
+    // Trigger Meta CAPI + Telegram
+    try {
+      const res = await fetch('/api/capi/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead: updatedLead,
+          stageId: newStageId,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.log) {
+        setCapiLogs((prev) => [data.log, ...prev]);
+      }
+    } catch (err) {
+      console.error('[CAPI Trigger Error]', err);
+    }
+  };
+
+  // Handle full lead update from detail modal
+  const handleUpdateLead = (updated: Lead) => {
+    setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+    handleMoveLead(updated.id, updated.stage);
+  };
+
+  // Handle adding new lead
+  const handleAddLead = async (newLead: Lead) => {
+    setLeads((prev) => [newLead, ...prev]);
+
+    // Dispatch initial CAPI event
+    try {
+      const res = await fetch('/api/capi/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead: newLead,
+          stageId: newLead.stage,
+        }),
+      });
+      const data = await res.json();
+      if (data.log) {
+        setCapiLogs((prev) => [data.log, ...prev]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-[#0c0d0f] text-[#f7f6f2] flex flex-col selection:bg-[#ceb585] selection:text-[#0c0d0f]">
+      {/* 1. Header with brand, vendors, and actions */}
+      <Header
+        selectedVendorId={selectedVendorId}
+        onSelectVendor={setSelectedVendorId}
+        onOpenNewLead={() => setIsNewLeadOpen(true)}
+        onOpenTestCapi={() => setIsTestCapiOpen(true)}
+        onOpenCapiLogs={() => setIsCapiLogsOpen(true)}
+        capiEventsCount={capiLogs.length}
+      />
+
+      {/* 2. KPI Metrics Bar */}
+      <StatsBar leads={displayedLeads} />
+
+      {/* 3. Drag-and-Drop Kanban Board */}
+      <main className="flex-1 flex flex-col">
+        <KanbanBoard
+          leads={displayedLeads}
+          onMoveLead={handleMoveLead}
+          onSelectLead={setSelectedLead}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
       </main>
+
+      {/* 4. Modals */}
+      <LeadDetailModal
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onUpdateLead={handleUpdateLead}
+      />
+
+      <NewLeadModal
+        isOpen={isNewLeadOpen}
+        onClose={() => setIsNewLeadOpen(false)}
+        onAddLead={handleAddLead}
+      />
+
+      <TestCapiModal
+        isOpen={isTestCapiOpen}
+        onClose={() => setIsTestCapiOpen(false)}
+        onAddLog={(newLog) => setCapiLogs((prev) => [newLog, ...prev])}
+      />
+
+      <CapiLogsModal
+        isOpen={isCapiLogsOpen}
+        onClose={() => setIsCapiLogsOpen(false)}
+        logs={capiLogs}
+      />
     </div>
   );
 }

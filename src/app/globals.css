@@ -1,26 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-obsidian: #0c0d0f;
+  --bg-surface: #141518;
+  --bg-surface-elevated: #1a1b1f;
+  --border-subtle: #24262b;
+  --border-gold: #ceb585;
+  --text-alabaster: #f7f6f2;
+  --text-travertine: #b8b7b2;
+  --accent-gold: #ceb585;
+  --accent-gold-hover: #dfc89d;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-obsidian);
+  color: var(--text-alabaster);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c0d0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #24262b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ceb585;
+}
+
+/* Glassmorphism surfaces */
+.glass-panel {
+  background: rgba(20, 21, 24, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-panel-elevated {
+  background: rgba(26, 27, 31, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(206, 181, 133, 0.2);
 }
